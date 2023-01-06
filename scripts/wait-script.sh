@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 
 IFS="," read -ra PORTS <<<"$WAIT_PORTS"
-
-echo "Sleeping for 30 seconds"
-sleep 30
-echo "Wake up Neo. Sorry copied)"
+path=$(dirname "$0")
 
 PIDs=()
 for port in "${PORTS[@]}"; do
-  "$(pwd)"/scripts/wait-for.sh -t 120 "localhost:$port" -- echo "Host localhost:$port is active" &
+  "$path"/wait-for.sh -t 120 "http://localhost:$port/manage/health" -- echo "Host localhost:$port is active" &
   PIDs+=($!)
 done
 
