@@ -2,7 +2,6 @@ package ru.shemich.flightservice.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.shemich.flightservice.api.response.FlightResponse;
 import ru.shemich.flightservice.api.response.PaginationResponse;
@@ -22,14 +21,6 @@ public class FlightController {
     public FlightController(FlightService flightService) {
         this.flightService = flightService;
     }
-
-
-    @GetMapping("/manage/health")
-    public HttpStatus health() {
-        log.info("Checking health");
-        return HttpStatus.OK;
-    }
-
 
     @GetMapping("/list")
     public List<FlightResponse> getAll() {

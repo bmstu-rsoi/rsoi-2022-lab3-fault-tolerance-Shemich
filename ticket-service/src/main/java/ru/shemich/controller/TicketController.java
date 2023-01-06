@@ -24,12 +24,6 @@ public class TicketController {
         this.ticketService = ticketService;
     }
 
-    @GetMapping("/manage/health")
-    public HttpStatus health() {
-        log.info("Checking health");
-        return HttpStatus.OK;
-    }
-
     @GetMapping()
     public List<Ticket> getAll(@RequestHeader (headerUsername) String username) {
         List<Ticket> tickets = ticketService.getAllByUsername(username);
