@@ -1,5 +1,6 @@
 package ru.shemich.gatewayservice.controller;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,6 @@ import ru.shemich.gatewayservice.model.*;
 import ru.shemich.gatewayservice.service.GatewayService;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -45,12 +45,13 @@ public class GatewayController {
     }
 
     @GetMapping("/flights")
-    public Mono<PaginationResponse> getFlights(
+    @CircuitBreaker(name = "flights", fallbackMethod = "getFlightsFallback")
+    public ResponseEntity<?> getFlights(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "3") int size) {
 
         log.info("GATEWAY: Fetching all flights");
-        return clientFlight
+        return ResponseEntity.ok(clientFlight
                 .get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/flights")
@@ -58,30 +59,50 @@ public class GatewayController {
                         .queryParam("size", size)
                         .build())
                 .retrieve()
-                .bodyToMono(PaginationResponse.class);
+                .bodyToMono(PaginationResponse.class)
+                .block());
     }
 
+    public ResponseEntity<?> getFlightsFallback(int page, int size, Throwable t) {
+        log.info("GATEWAY: flights fallback page:{}, size:{}, throwable:{}",page, size, t.getMessage());
+        return ResponseEntity.internalServerError().body("Oops! Something went wrong, please check flights after some time!");
+    }
+
+
     @GetMapping("/privilege")
-    public Mono<PrivilegeInfoResponse> getPrivilegeShortInfo (@RequestHeader(headerUsername) String username) {
-        return clientBonus
+    @CircuitBreaker(name = "privilege", fallbackMethod = "getPrivilegeFallback")
+    public ResponseEntity<?> getPrivilegeShortInfo (@RequestHeader(headerUsername) String username) {
+        return ResponseEntity.ok(clientBonus
                 .get()
                 .uri("/privilege")
                 .header(headerUsername, username)
                 .retrieve()
-                .bodyToMono(PrivilegeInfoResponse.class);
+                .bodyToMono(PrivilegeInfoResponse.class)
+                .block());
     }
 
+    public ResponseEntity<?> getPrivilegeFallback(String username, Throwable t) {
+        log.info("GATEWAY: privilege fallback user:{}, throwable:{}", username, t.getMessage());
+        return ResponseEntity.internalServerError().body("Oops! Something went wrong, please check privilege after some time!");
+    }
     @GetMapping("/me")
-    public UserInfoResponse getUserInfo(@RequestHeader(headerUsername) String username) {
+    @CircuitBreaker(name = "privilege", fallbackMethod = "getMeFallback")
+    public ResponseEntity<?> getUserInfo(@RequestHeader(headerUsername) String username) {
         Flux<TicketResponse> ticketResponseFlux = gatewayService.getTicketResponseList(clientTicket, username);
         List<TicketResponse> ticketResponseList = ticketResponseFlux.collect(Collectors.toList()).share().block();
         PrivilegeShortInfo privilegeShortInfo = gatewayService.getPrivilegeShortInfo(clientBonus, username);
         gatewayService.updateTicketResponseList(clientFlight, ticketResponseList);
-        return new UserInfoResponse(ticketResponseList, privilegeShortInfo);
+        return ResponseEntity.ok(new UserInfoResponse(ticketResponseList, privilegeShortInfo));
+    }
+
+    public ResponseEntity<?> getMeFallback(String username, Throwable t) {
+        log.info("GATEWAY: me fallback user:{}, throwable:{}", username, t.getMessage());
+        return ResponseEntity.internalServerError().body("Oops! Something went wrong, please check me after some time!");
     }
 
     @GetMapping("/tickets/{ticketUid}")
-    public TicketResponse getTicketByUidAndUsername(@PathVariable UUID ticketUid,
+    @CircuitBreaker(name = "tickets", fallbackMethod = "getTicketFallback")
+    public ResponseEntity<?> getTicketByUidAndUsername(@PathVariable UUID ticketUid,
                                                     @RequestHeader(headerUsername) String username) {
         log.info("GATEWAY: Fetching ticket. UUID: {}, Username: {}", ticketUid, username);
         TicketResponse ticketResponse = clientTicket
@@ -100,8 +121,12 @@ public class GatewayController {
         ticketResponse.setToAirport(flightResponse.getToAirport());
         ticketResponse.setDate(flightResponse.getDate());
 
-        return ticketResponse;
+        return ResponseEntity.ok(ticketResponse);
+    }
 
+    public ResponseEntity<?> getTicketFallback(UUID ticketUid, String username, Throwable t) {
+        log.info("GATEWAY: ticket fallback user:{}, ticketUid:{}, throwable:{}", username, ticketUid, t.getMessage());
+        return ResponseEntity.internalServerError().body("Oops! Something went wrong, please check ticket after some time!");
     }
     @DeleteMapping("/tickets/{ticketUid}")
     public ResponseEntity<?> refundTicketByUidAndUsername(@PathVariable UUID ticketUid,
@@ -116,11 +141,17 @@ public class GatewayController {
     }
 
     @GetMapping("/tickets")
-    public List<TicketResponse> getAllTickets(@RequestHeader(headerUsername) String username) {
+    @CircuitBreaker(name = "tickets", fallbackMethod = "getTicketsFallback")
+    public ResponseEntity<?> getAllTickets(@RequestHeader(headerUsername) String username) {
         log.info("GATEWAY: Fetching all tickets. Username: {}", username);
         Flux<TicketResponse> ticketResponseFlux = gatewayService.getTicketResponseList(clientTicket, username);
         List<TicketResponse> ticketResponseList = ticketResponseFlux.collect(Collectors.toList()).share().block();
-        return gatewayService.updateTicketResponseList(clientFlight, ticketResponseList);
+        return ResponseEntity.ok(gatewayService.updateTicketResponseList(clientFlight, ticketResponseList));
+    }
+
+    public ResponseEntity<?> getTicketsFallback(String username, Throwable t) {
+        log.info("GATEWAY: tickets fallback user:{}, throwable:{}", username, t.getMessage());
+        return ResponseEntity.internalServerError().body("Oops! Something went wrong, please check ticket after some time!");
     }
 
     @PostMapping("/tickets")

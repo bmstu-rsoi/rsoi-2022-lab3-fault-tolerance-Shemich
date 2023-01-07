@@ -23,7 +23,10 @@ public class TicketController {
     public TicketController(TicketService ticketService) {
         this.ticketService = ticketService;
     }
-
+    @GetMapping("/manage/health")
+    public HttpStatus checkHealth(){
+        return HttpStatus.OK;
+    }
     @GetMapping()
     public List<Ticket> getAll(@RequestHeader (headerUsername) String username) {
         List<Ticket> tickets = ticketService.getAllByUsername(username);

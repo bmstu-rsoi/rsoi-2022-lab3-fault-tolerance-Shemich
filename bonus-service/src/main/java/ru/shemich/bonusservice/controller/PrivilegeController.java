@@ -26,6 +26,11 @@ public class PrivilegeController {
     private final String headerUsername = "X-User-Name";
 
 
+    @GetMapping("/manage/health")
+    public HttpStatus checkHealth(){
+        return HttpStatus.OK;
+    }
+
     @GetMapping()
     public PrivilegeInfoResponse getPrivilegeInfo(@RequestHeader(headerUsername) String username) {
         log.info("Fetching privilege. User: {}", username);
