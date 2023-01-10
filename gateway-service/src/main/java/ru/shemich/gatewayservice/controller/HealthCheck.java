@@ -1,4 +1,4 @@
-package ru.shemich.bonusservice.controller;
+package ru.shemich.gatewayservice.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
